@@ -1,9 +1,9 @@
-window.addEventListener("DOMContentLoaded",()=>{const t=document.createElement("script");t.src="https://www.googletagmanager.com/gtag/js?id=G-W5GKHM0893",t.async=!0,document.head.appendChild(t);const n=document.createElement("script");n.textContent="window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-W5GKHM0893');",document.body.appendChild(n)});// ========== PakePlus 注入脚本：修复顶部安全区 + 高度压缩 ==========
+window.addEventListener("DOMContentLoaded",()=>{const t=document.createElement("script");t.src="https://www.googletagmanager.com/gtag/js?id=G-W5GKHM0893",t.async=!0,document.head.appendChild(t);const n=document.createElement("script");n.textContent="window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-W5GKHM0893');",document.body.appendChild(n)});// ========== PakePlus 注入脚本 v4：React 专用，精准覆盖安全区 ==========
 
 (function () {
     'use strict'
 
-    // 1. 确保 viewport-fit=cover
+    // 1. viewport
     const ensureViewport = () => {
         let meta = document.querySelector('meta[name="viewport"]')
         if (!meta) {
@@ -11,64 +11,129 @@ window.addEventListener("DOMContentLoaded",()=>{const t=document.createElement("
             meta.name = 'viewport'
             document.head.appendChild(meta)
         }
-        const content = meta.getAttribute('content') || ''
-        if (!content.includes('viewport-fit=cover')) {
-            meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
-        }
+        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no')
     }
 
-    // 2. 核心修复：强制全屏 + 修复高度
-    const fixFullscreen = () => {
+    // 2. 核心样式：只处理根容器，不动 React 内部布局
+    const injectRootFix = () => {
         const style = document.createElement('style')
-        style.id = 'pakeplus-fullscreen-fix'
+        style.id = 'pakeplus-react-fix'
         style.textContent = `
-            /* 强制铺满，无视安全区 */
-            html {
-                height: 100% !important;
-                height: 100dvh !important;
+            /* 强制 html/body 无内边距 */
+            html, body {
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden !important;
+                overflow-x: hidden !important;
             }
             
-            body {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
+            /* 关键：React 根节点强制铺满 */
+            #root, #app {
+                position: relative !important;
                 width: 100% !important;
-                height: 100% !important;
-                height: 100dvh !important;
+                min-height: 100vh !important;
+                min-height: 100dvh !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden !important;
-                /* 关键：让内容从屏幕最顶部开始渲染 */
+                /* 覆盖安全区 */
+                padding-top: 0px !important;
+                padding-bottom: 0px !important;
+                padding-left: 0px !important;
+                padding-right: 0px !important;
+            }
+            
+            /* 覆盖所有可能的安全区 padding */
+            @supports (padding: env(safe-area-inset-top)) {
+                #root, #app, #root > *, #app > * {
+                    padding-top: 0px !important;
+                    padding-bottom: 0px !important;
+                    padding-left: 0px !important;
+                    padding-right: 0px !important;
+                    margin-top: 0px !important;
+                    margin-bottom: 0px !important;
+                }
+            }
+            
+            /* 如果 React 根节点内部有安全区相关 class */
+            [class*="safe"], [class*="Safe"], [class*="notch"], [class*="Notch"] {
                 padding-top: 0px !important;
                 padding-bottom: 0px !important;
             }
-            
-            /* 你的 App 根容器 - 强制铺满 */
-            #app, #root, .app, [id*="app"], [class*="app"] {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                height: 100dvh !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: auto !important;
-            }
-            
-            /* 覆盖可能的安全区 padding */
+        `
+        document.head.appendChild(style)
+    }
+
+    // 3. 动态修正 React 根节点
+    const fixReactRoot = () => {
+        const root = document.querySelector('#root') || document.querySelector('#app')
+        if (!root) {
+            console.log('[PakePlus] 未找到 #root 或 #app，等待...')
+            setTimeout(fixReactRoot, 300)
+            return
+        }
+        
+        console.log('[PakePlus] 找到 React 根节点:', root.id || root.className)
+        
+        // 强制修正根节点样式
+        root.style.cssText += `
+            position: relative !important;
+            width: 100% !important;
+            min-height: 100vh !important;
+            min-height: 100dvh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            padding-left: 0px !important;
+            padding-right: 0px !important;
+            top: 0 !important;
+            left: 0 !important;
+            transform: none !important;
+        `
+        
+        // 关键：修正根节点的第一个子元素（通常是你的 App 组件）
+        const firstChild = root.firstElementChild
+        if (firstChild) {
+            firstChild.style.marginTop = '0px'
+            firstChild.style.paddingTop = '0px'
+            console.log('[PakePlus] 已修正第一个子元素:', firstChild.className || firstChild.tagName)
+        }
+    }
+
+    // 4. 监听 DOM 变化（React 是动态渲染的）
+    const observeReact = () => {
+        const root = document.querySelector('#root') || document.querySelector('#app')
+        if (!root) return
+        
+        const observer = new MutationObserver((mutations) => {
+            fixReactRoot()
+        })
+        
+        observer.observe(root, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style', 'class']
+        })
+        
+        console.log('[PakePlus] 已监听 React 根节点变化')
+    }
+
+    // 5. 用 JS 强制移除所有安全区内边距
+    const nukeSafeArea = () => {
+        const style = document.createElement('style')
+        style.id = 'pakeplus-nuke'
+        style.textContent = `
+            /* 终极覆盖：所有元素的安全区 padding 归零 */
             * {
-                -webkit-padding-start: 0 !important;
+                --safe-area-inset-top: 0px !important;
+                --safe-area-inset-bottom: 0px !important;
+                --safe-area-inset-left: 0px !important;
+                --safe-area-inset-right: 0px !important;
             }
             
-            /* 特别处理：如果网站用了 safe-area-inset-top */
+            /* 针对 env() 的覆盖 */
             @supports (padding-top: env(safe-area-inset-top)) {
-                html, body, #app, #root {
+                html, body, #root, #app, #root *, #app * {
                     padding-top: 0px !important;
                     padding-bottom: 0px !important;
                 }
@@ -77,62 +142,14 @@ window.addEventListener("DOMContentLoaded",()=>{const t=document.createElement("
         document.head.appendChild(style)
     }
 
-    // 3. 修复 iOS 特有的 WKWebView 高度问题
-    const fixIOSHeight = () => {
-        // iOS 上 100vh 不等于实际可视高度，需要手动计算
-        const setRealHeight = () => {
-            const vh = window.innerHeight
-            document.documentElement.style.setProperty('--real-vh', `${vh}px`)
-            
-            const app = document.querySelector('#app') || document.querySelector('#root') || document.body
-            if (app) {
-                app.style.height = `${vh}px`
-                app.style.minHeight = `${vh}px`
-                app.style.maxHeight = `${vh}px`
-            }
-        }
-        
-        setRealHeight()
-        window.addEventListener('resize', setRealHeight)
-        window.addEventListener('orientationchange', setRealHeight)
-    }
-
-    // 4. 强制滚动位置到顶部（防止被安全区推下去）
-    const forceScrollTop = () => {
-        window.scrollTo(0, 0)
-        document.documentElement.scrollTop = 0
-        document.body.scrollTop = 0
-        
-        const app = document.querySelector('#app') || document.querySelector('#root')
-        if (app) {
-            app.scrollTop = 0
-            // 强制 translate 修正位置
-            app.style.transform = 'translateY(0px)'
-            app.style.webkitTransform = 'translateY(0px)'
-        }
-    }
-
-    // 5. 移除可能存在的顶部 padding/margin
-    const removeTopSpacing = () => {
-        // 遍历所有直接子元素，移除顶部间距
-        const allElements = document.querySelectorAll('body, body > *')
-        allElements.forEach(el => {
-            const computed = getComputedStyle(el)
-            if (parseInt(computed.paddingTop) > 0 || parseInt(computed.marginTop) > 0) {
-                el.style.paddingTop = '0px'
-                el.style.marginTop = '0px'
-            }
-        })
-    }
-
     // 执行
     const init = () => {
         ensureViewport()
-        fixFullscreen()
-        fixIOSHeight()
-        forceScrollTop()
-        removeTopSpacing()
-        console.log('[PakePlus] 全屏修复 v2 已注入')
+        injectRootFix()
+        fixReactRoot()
+        observeReact()
+        nukeSafeArea()
+        console.log('[PakePlus] React 专用修复 v4 已注入')
     }
 
     if (document.readyState === 'loading') {
@@ -141,10 +158,11 @@ window.addEventListener("DOMContentLoaded",()=>{const t=document.createElement("
         init()
     }
     
-    // 多次执行确保生效
+    // 多次执行确保 React 渲染完成后生效
     setTimeout(init, 100)
     setTimeout(init, 500)
-    setTimeout(init, 1000)
+    setTimeout(init, 1500)
+    setTimeout(fixReactRoot, 2000)
 })()
 
 // ========== 保留原有的 hookClick ==========
