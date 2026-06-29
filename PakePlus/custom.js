@@ -25,12 +25,11 @@ window.open = function (url, target, features) {
 
 document.addEventListener('click', hookClick, { capture: true })
 
-// ===================== 新增：零侵入消除Electron窗口白边 =====================
-// 页面就绪后动态插入强制全屏样式，不修改任何原有DOM与业务逻辑
+// ===================== 强力修复顶部白边+全屏铺满 =====================
 document.addEventListener('DOMContentLoaded', () => {
     const fixStyle = document.createElement('style');
     fixStyle.textContent = `
-        /* 强制根页面零边距铺满整个窗口 */
+        /* 强制页面根元素无视所有默认边距、顶部安全偏移 */
         html,body {
             margin: 0 !important;
             padding: 0 !important;
@@ -39,16 +38,24 @@ document.addEventListener('DOMContentLoaded', () => {
             overflow: hidden !important;
             box-sizing: border-box !important;
             background: #000 !important;
+            /* 重点：取消顶部刘海/安全区强制留白 */
+            padding-top: 0 !important;
+            margin-top: 0 !important;
         }
-        /* 页面根容器强制撑满窗口 */
-        #app, div#app, body>div {
+        /* 登录弹窗+根容器 强制顶到屏幕最顶部，不留缝隙 */
+        body>div, #app, .login-box, div[class*="login"] {
             width: 100% !important;
             height: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: none !important;
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            top: 0 !important;
+            position: absolute !important;
         }
-        /* 隐藏多余滚动条缝隙 */
+        /* 消除Electron窗口圆角带来的顶部圆弧白边 */
+        body {
+            border-radius: 0 !important;
+        }
+        /* 隐藏所有滚动条、侧边缝隙 */
         ::-webkit-scrollbar {
             display: none !important;
             width: 0 !important;
@@ -59,4 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
     document.head.appendChild(fixStyle);
+
+    // 额外延时兜底，Vue页面渲染完成后二次压顶，防止Vue渲染延迟出现顶部留白
+    setTimeout(()=>{
+        window.scrollTo(0,0);
+        document.body.scrollTop = 0;
+    }, 300)
 });
